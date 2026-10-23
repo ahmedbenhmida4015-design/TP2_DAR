@@ -1,98 +1,61 @@
 package ClientPackage;
 
-import java.io.*;
-import java.net.ServerSocket;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class Client2_1
-{
-    static void main(String[] args) throws IOException {
-        System.out.println("je suis un client pas encore connecte");
+public class Client2_1 {
 
-        Socket socket = new Socket("localhost", 1234);
+    // nombre, opérateur (+ - * /), nombre ; espaces facultatifs
+    static final Pattern SYNTAXE = Pattern.compile(
+            "^\\s*(-?\\d+(?:\\.\\d+)?)\\s*([+\\-*/])\\s*(-?\\d+(?:\\.\\d+)?)\\s*$");
 
-        System.out.println("je suis un client  connecte");
+    public static void main(String[] args) {
+        try {
+            System.out.println("Je suis un client pas encore connecté…");
+            Socket socket = new Socket("localhost", 1234);
+            System.out.println("je suis un client connecté");
 
-        Scanner sca = new Scanner(System.in);
+            PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader br = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream()));
+            Scanner sc = new Scanner(System.in);
 
-        OutputStream os = socket.getOutputStream();
-
-        DataOutputStream dos = new DataOutputStream(os);
-
-        InputStream is = socket.getInputStream();
-
-        DataInputStream dis = new DataInputStream(is);
-        String ch;
-        do {
-            System.out.println("\n CALCULATRICE TCP ");
-            System.out.println("1. Addition");
-            System.out.println("2. Soustraction");
-            System.out.println("3. Multiplication");
-            System.out.println("4. Division");
-            System.out.println("0. Quitter");
-            System.out.print("Votre choix : ");
-            ch = sca.nextLine();
-            dos.writeUTF(ch);
-            System.out.println("le chois envoyer au serveur ");
-            if (ch.equals("0") ) {
-                System.out.println("Fin de la comminication serveur et client");
-                break;
-            }
-            String op;
-
-            switch (ch) {
-                case "1":
-                    op = "+";
+            while (true) {
+                System.out.print("Donnez une opération (ex : 55 * 25) ou quit : ");
+                String saisie = sc.nextLine().trim();
+                if (saisie.equals("quit")) {
                     break;
-                case "2":
-                    op = "-";
-                    break;
-                case "3":
-                    op = "*";
-                    break;
-                case "4":
-                    op = "/";
-                    break;
-                default:
-                    System.out.println("Choix invalide.");
+                }
+
+                // Validation de la syntaxe AVANT l'envoi
+                Matcher m = SYNTAXE.matcher(saisie);
+                if (!m.matches()) {
+                    System.out.println("Syntaxe invalide, rien n'est envoyé.");
                     continue;
+                }
+
+                // a) envoi des trois éléments, un par ligne
+                pw.println(m.group(1)); // premier opérande
+                pw.println(m.group(2)); // opérateur
+                pw.println(m.group(3)); // deuxième opérande
+
+                // d) lecture et affichage du résultat
+                String reponse = br.readLine();
+                System.out.println("Résultat : " + reponse);
             }
 
-            System.out.print("Saisir le premier nombre : ");
-            String a = sca.nextLine();
-
-            System.out.print("Saisir le deuxième nombre : ");
-            String b = sca.nextLine();
-
-            // Envoyer les nombres au serveur
-            dos.writeUTF(op);
-            dos.writeUTF(a);
-            dos.writeUTF(b);
-
-            // Validation des nombres avant l'envoi
-            try {
-                Double.parseDouble(a);
-                Double.parseDouble(b);
-            } catch (NumberFormatException e) {
-                System.out.println("Erreur : saisissez des nombres valides.");
-                continue;
-            }
-
-            System.out.println("Operation envoyee au serveur : "
-                    + a + " " + op + " " + b);
-
-
-            // Recevoir et afficher le resultat
-            String resultat = dis.readUTF();
-
-            System.out.println("Reponse du serveur : " + resultat);
-        } while (true);
-
-        System.out.println("la comminication de la serveur et client se terminer ");
-        dos.close();
-        dis.close();
-        sca.close();
-        socket.close();
+            pw.println("quit"); // prévenir le serveur
+            System.out.println("Fin de la communication");
+            sc.close();
+            socket.close();
+        } catch (IOException e) {
+            System.out.println("Erreur côté client : " + e.getMessage());
+        }
     }
 }

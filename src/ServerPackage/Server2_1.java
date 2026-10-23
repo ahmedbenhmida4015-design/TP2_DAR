@@ -1,93 +1,85 @@
-
 package ServerPackage;
 
-
-import java.io.*;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class Server2_1 {
-    public static void main(String[] args) throws IOException {
 
+    public static void main(String[] args) {
+        try {
+            ServerSocket serverSocket = new ServerSocket(1234);
+            System.out.println("Je suis un serveur en attente la connexion d'un client ");
+            Socket socket = serverSocket.accept();
+            System.out.println("un client est connecté");
 
-        ServerSocket serverSocket = new ServerSocket(1234);
+            // Flux de communication (octets) puis flux de traitement (texte)
+            InputStream is = socket.getInputStream();
+            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+            OutputStream os = socket.getOutputStream();
+            PrintWriter pw = new PrintWriter(os, true); // true = envoi automatique à chaque println
 
-        System.out.println("Je suis un serveur en attente");
+            // a) Le client envoie 3 lignes : opérande 1, opérateur, opérande 2
+            String operande1 = br.readLine();
+            while (operande1 != null && !operande1.equals("quit")) {
+                String operateur = br.readLine();
+                String operande2 = br.readLine();
+                System.out.println("Opération reçue : " + operande1 + " " + operateur + " " + operande2);
 
-        Socket socket = serverSocket.accept();
-
-        System.out.println("Un client est connecté");
-
-        OutputStream os = socket.getOutputStream();
-        DataOutputStream dos = new DataOutputStream(os);
-        InputStream is=socket.getInputStream();
-        DataInputStream dis=new DataInputStream(is);
-        while(true) {
-
-            String ch = dis.readUTF();
-            if (ch.equals("0")) {
-                System.out.println("le client a mis 0 donc on va Quitter");
-                break;
-            }
-            String op = dis.readUTF();
-
-            String aString = dis.readUTF();
-
-            String bString = dis.readUTF();
-
-            System.out.println("Premier nombre recu : " + aString);
-            System.out.println("Operateur recu : " + op);
-            System.out.println("Deuxieme nombre recu : " + bString);
-
-
-            try {
-                double a = Double.parseDouble(aString);
-                double b = Double.parseDouble(bString);
-                double r = 0;
-
-                switch (op) {
-                    case "+":
-                        r = a + b;
-                        break;
-                    case "-":
-                        r = a - b;
-                        break;
-                    case "*":
-                        r = a * b;
-                        break;
-                    case "/":
-                        if (b == 0) {
-                            dos.writeUTF(
-                                    "Erreur : division par zero"
-                            );
-                            continue;
-                        } else {
-                            r = a / b;
-                        }
-                        break;
-                    default:
-                        dos.writeUTF("Erreur : operateur invalide");
-                        continue;
+                // b) Le serveur calcule
+                String reponse;
+                try {
+                    reponse = calculer(Double.parseDouble(operande1), operateur,
+                            Double.parseDouble(operande2));
+                } catch (NumberFormatException e) {
+                    reponse = "Erreur : opérande invalide";
                 }
 
-                dos.writeUTF(String.valueOf(r));
-                System.out.println("Résultat envoyé : " + r);
-            }catch (NumberFormatException e) {
-                dos.writeUTF("Erreur : nombres invalides");
+                // c) Le serveur envoie le résultat
+                pw.println(reponse);
+                System.out.println("Réponse envoyée : " + reponse);
+
+                operande1 = br.readLine(); // opération suivante, ou "quit"
             }
-            System.out.println("Nombres reçus : " + aString + op + bString);
 
-
-
-
-
+            System.out.println("Fin de la communication");
+            socket.close();
+            serverSocket.close();
+        } catch (IOException e) {
+            System.out.println("Erreur côté serveur : " + e.getMessage());
         }
-        dis.close();
-        dos.close();
-        socket.close();
-        serverSocket.close();
     }
 
+    // Effectue l'opération et renvoie le texte à afficher chez le client
+    static String calculer(double a, String operateur, double b) {
+        double r;
+        switch (operateur) {
+            case "+": r = a + b; break;
+            case "-": r = a - b; break;
+            case "*": r = a * b; break;
+            case "/":
+                if (b == 0) {
+                    return "Erreur : division par zéro impossible";
+                }
+                r = a / b;
+                break;
+            default:
+                return "Erreur : opérateur inconnu";
+        }
+        //return formater(a) + " " + operateur + " " + formater(b) + " = " + formater(r);
+        return a + " " + operateur + " " + b + " = " + r;
+    }
+
+    // 1375.0 s'affiche 1375 ; 3.5 reste 3.5
+    static String formater(double v) {
+        if (v == Math.rint(v) && !Double.isInfinite(v)) {
+            return String.valueOf((long) v);
+        }
+        return String.valueOf(v);
+    }
 }
